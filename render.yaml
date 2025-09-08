@@ -1,9 +1,8 @@
-# render.yaml
 services:
   # --- Web App (Docker) ---
   - type: web
     name: ereceipt-app
-    runtime: docker           # (If your account expects 'env', see fallback below)
+    runtime: docker           # if your account expects 'env', change to: env: docker
     plan: free
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health
@@ -14,7 +13,7 @@ services:
       - key: Demo
         value: true
 
-      # SQLite on a persistent disk
+      # SQLite on persistent disk
       - key: Storage__Mode
         value: Sql
       - key: Storage__SqlProvider
@@ -22,11 +21,11 @@ services:
       - key: Storage__ConnectionStrings__Sqlite
         value: Data Source=/data/app.db
 
-      # Point to the private service by DNS name inside Render's private network
+      # Redis (private service reachable by DNS name on private network)
       - key: Storage__Redis
         value: redis:6379
 
-      # Set these after first deploy (then redeploy)
+      # Set these AFTER first deploy (then redeploy)
       - key: Shortener__ShortBaseUrl
         value: https://REPLACE_AFTER_DEPLOY
       - key: Shortener__ViewBaseUrl
@@ -62,7 +61,7 @@ services:
       - key: RateLimit__Shorten__PerKeyPerHour
         value: "120"
 
-    # persistent disk for SQLite
+    # persistent disk for SQLite DB
     disk:
       name: data
       mountPath: /data
@@ -71,15 +70,5 @@ services:
   # --- Redis (Private Service) ---
   - type: pserv
     name: redis
-    runtime: image            # (If your account expects 'env', see fallback below)
-    plan: starter             # private services can’t be on free
-    image:
-      url: docker.io/library/redis:7-alpine
-    # If 'dockerCommand' is not accepted on your account, change to 'command:'
-    command: redis-server --appendonly yes --save 60 1 --appendfsync everysec
-
-    # persistent disk for Redis data
-    disk:
-      name: redisdata
-      mountPath: /data
-      sizeGB: 1
+    runtime: image            # if your account expects 'env', change to: env: image
+    plan: starter

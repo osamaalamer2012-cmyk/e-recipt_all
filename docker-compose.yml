@@ -1,0 +1,43 @@
+version: '3.9'
+services:
+  app:
+    build: .
+    ports: ["8080:8080"]
+    environment:
+      - ASPNETCORE_URLS=http://0.0.0.0:8080
+      - Demo=true
+      - Storage__Mode=Sql
+      - Storage__SqlProvider=Sqlite
+      - Storage__ConnectionStrings__Sqlite=Data Source=/appdata/app.db
+      - Storage__Redis=redis:6379
+      - Shortener__ShortBaseUrl=http://localhost:8080
+      - Shortener__ViewBaseUrl=http://localhost:8080/view.html
+      - Jwt__Issuer=ereceipt
+      - Jwt__Audience=ereceipt-viewer
+      - Jwt__ExpMinutes=10
+      - Jwt__SkewSeconds=120
+      - Jwt__ActiveKid=k2
+      - Jwt__Keys__0__Kid=k1
+      - Jwt__Keys__0__Secret=PLEASE_CHANGE_TO_LONG_RANDOM_1_____________________________________
+      - Jwt__Keys__1__Kid=k2
+      - Jwt__Keys__1__Secret=PLEASE_CHANGE_TO_LONG_RANDOM_2_____________________________________
+      - RateLimit__Otp__PerIpPerMinute=5
+      - RateLimit__Otp__PerJtiPerMinute=3
+      - RateLimit__Shorten__PerIpPerMinute=30
+      - RateLimit__Shorten__PerKeyPerHour=120
+    volumes:
+      - appdata:/appdata
+    depends_on:
+      - redis
+      - sqlserver
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=Your_password123
+    ports: ["1433:1433"]
+volumes:
+  appdata:

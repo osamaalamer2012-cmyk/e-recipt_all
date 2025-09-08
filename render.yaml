@@ -1,15 +1,15 @@
-# render.yaml  (place at repo root)
 services:
   # --- Web App (Docker) ---
   - type: web
     name: ereceipt-app
     runtime: docker
-    plan: free                # web can be free; upgrade if needed
+    plan: free
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health
 
-    # Get Redis host:port from the private service automatically
     envVars:
+      - key: ASPNETCORE_URLS
+        value: http://0.0.0.0:${PORT}
       - key: Demo
         value: true
 
@@ -21,20 +21,20 @@ services:
       - key: Storage__ConnectionStrings__Sqlite
         value: Data Source=/data/app.db
 
-      # Point to the private Redis service (host:port on Render’s private network)
+      # Private Redis (resolved automatically)
       - key: Storage__Redis
         fromService:
           name: redis
           type: pserv
           property: hostport
 
-      # Set these to your live URL AFTER the first deploy, then redeploy
+      # Set these to your live URL AFTER first deploy
       - key: Shortener__ShortBaseUrl
         value: https://REPLACE_AFTER_DEPLOY
       - key: Shortener__ViewBaseUrl
         value: https://REPLACE_AFTER_DEPLOY/view.html
 
-      # JWT with rotation (replace secrets after first deploy)
+      # JWT (replace with strong secrets)
       - key: Jwt__Issuer
         value: ereceipt
       - key: Jwt__Audience
@@ -64,23 +64,24 @@ services:
       - key: RateLimit__Shorten__PerKeyPerHour
         value: "120"
 
-    # persistent disk for SQLite DB
-    disks:
-      - name: data
-        mountPath: /data
-        sizeGB: 1
+    # ✅ singular "disk" (not "disks")
+    disk:
+      name: data
+      mountPath: /data
+      sizeGB: 1
 
-  # --- Redis as a Private Service (Docker Image) ---
+  # --- Redis as a Private Service ---
   - type: pserv
     name: redis
     runtime: image
-    plan: starter             # required; private services can’t use free
+    plan: starter     # private services can’t be free
     image:
       url: docker.io/library/redis:7-alpine
-    # enable persistence (AOF + periodic RDB)
+    # If Render complains about this key, change to "command:"
     dockerCommand: redis-server --appendonly yes --save 60 1 --appendfsync everysec
-
-    # persistent disk for Redis data
+    ports:
+      - port: 6379
+        protocol: tcp
     disk:
       name: redisdata
       mountPath: /data

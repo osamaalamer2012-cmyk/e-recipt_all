@@ -1,8 +1,9 @@
+# render.yaml
 services:
   # --- Web App (Docker) ---
   - type: web
     name: ereceipt-app
-    runtime: docker
+    runtime: docker           # (If your account expects 'env', see fallback below)
     plan: free
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health
@@ -21,20 +22,17 @@ services:
       - key: Storage__ConnectionStrings__Sqlite
         value: Data Source=/data/app.db
 
-      # Private Redis (resolved automatically)
+      # Point to the private service by DNS name inside Render's private network
       - key: Storage__Redis
-        fromService:
-          name: redis
-          type: pserv
-          property: hostport
+        value: redis:6379
 
-      # Set these to your live URL AFTER first deploy
+      # Set these after first deploy (then redeploy)
       - key: Shortener__ShortBaseUrl
         value: https://REPLACE_AFTER_DEPLOY
       - key: Shortener__ViewBaseUrl
         value: https://REPLACE_AFTER_DEPLOY/view.html
 
-      # JWT (replace with strong secrets)
+      # JWT rotation (replace with strong random secrets after first deploy)
       - key: Jwt__Issuer
         value: ereceipt
       - key: Jwt__Audience
@@ -64,24 +62,23 @@ services:
       - key: RateLimit__Shorten__PerKeyPerHour
         value: "120"
 
-    # ✅ singular "disk" (not "disks")
+    # persistent disk for SQLite
     disk:
       name: data
       mountPath: /data
       sizeGB: 1
 
-  # --- Redis as a Private Service ---
+  # --- Redis (Private Service) ---
   - type: pserv
     name: redis
-    runtime: image
-    plan: starter     # private services can’t be free
+    runtime: image            # (If your account expects 'env', see fallback below)
+    plan: starter             # private services can’t be on free
     image:
       url: docker.io/library/redis:7-alpine
-    # If Render complains about this key, change to "command:"
-    dockerCommand: redis-server --appendonly yes --save 60 1 --appendfsync everysec
-    ports:
-      - port: 6379
-        protocol: tcp
+    # If 'dockerCommand' is not accepted on your account, change to 'command:'
+    command: redis-server --appendonly yes --save 60 1 --appendfsync everysec
+
+    # persistent disk for Redis data
     disk:
       name: redisdata
       mountPath: /data

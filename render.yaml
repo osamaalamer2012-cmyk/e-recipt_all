@@ -1,0 +1,86 @@
+services:
+  # --- Web App (Docker) ---
+  - type: web
+    name: ereceipt-app
+    env: docker
+    plan: free
+    autoDeploy: true
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+
+    envVars:
+      # Kestrel bind
+      - key: ASPNETCORE_URLS
+        value: http://0.0.0.0:${PORT}
+      # Demo helper (shows OTP on screen)
+      - key: Demo
+        value: true
+
+      # Storage: SQLite (app) + Redis (OTP & rate-limit)
+      - key: Storage__Mode
+        value: Sql
+      - key: Storage__SqlProvider
+        value: Sqlite
+      - key: Storage__ConnectionStrings__Sqlite
+        value: Data Source=/data/app.db
+      # Internal hostname for the private Redis service (below)
+      - key: Storage__Redis
+        value: redis:6379
+
+      # App base URLs — set to your real Render URL *after first deploy*
+      - key: Shortener__ShortBaseUrl
+        value: https://REPLACE_AFTER_DEPLOY
+      - key: Shortener__ViewBaseUrl
+        value: https://REPLACE_AFTER_DEPLOY/view.html
+
+      # JWT with key rotation (replace with long random strings after deploy)
+      - key: Jwt__Issuer
+        value: ereceipt
+      - key: Jwt__Audience
+        value: ereceipt-viewer
+      - key: Jwt__ExpMinutes
+        value: "10"
+      - key: Jwt__SkewSeconds
+        value: "120"
+      - key: Jwt__ActiveKid
+        value: k2
+      - key: Jwt__Keys__0__Kid
+        value: k1
+      - key: Jwt__Keys__0__Secret
+        value: CHANGE_ME_TO_LONG_RANDOM_1______________________________________
+      - key: Jwt__Keys__1__Kid
+        value: k2
+      - key: Jwt__Keys__1__Secret
+        value: CHANGE_ME_TO_LONG_RANDOM_2______________________________________
+
+      # Rate limits
+      - key: RateLimit__Otp__PerIpPerMinute
+        value: "5"
+      - key: RateLimit__Otp__PerJtiPerMinute
+        value: "3"
+      - key: RateLimit__Shorten__PerIpPerMinute
+        value: "30"
+      - key: RateLimit__Shorten__PerKeyPerHour
+        value: "120"
+
+    disks:
+      - name: data
+        mountPath: /data
+        sizeGB: 1
+
+  # --- Private Redis (Docker) ---
+  - type: private_service
+    name: redis
+    env: docker
+    plan: free
+    image: redis:7-alpine
+    autoDeploy: true
+    # Enable persistence (AOF) and periodic RDB snapshots
+    dockerCommand: redis-server --appendonly yes --save 60 1 --appendfsync everysec
+    ports:
+      - port: 6379
+        protocol: tcp
+    disks:
+      - name: redisdata
+        mountPath: /data
+        sizeGB: 1
